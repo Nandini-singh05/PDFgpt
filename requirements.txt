@@ -1,5 +1,6 @@
-langchain==0.0.154
+langchain
 PyPDF2
-python-dotenv==1.0.0
-streamlit==1.18.1
+python-dotenv
+streamlit
 streamlit-extras
+
