@@ -4,3 +4,4 @@ python-dotenv
 streamlit
 streamlit-extras
 langchain_community
+langchain_groq
