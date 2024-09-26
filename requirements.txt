@@ -3,4 +3,4 @@ PyPDF2
 python-dotenv
 streamlit
 streamlit-extras
-
+langchain_community
