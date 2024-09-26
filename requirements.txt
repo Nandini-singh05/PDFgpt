@@ -1,7 +1,6 @@
-langchain
-PyPDF2
-python-dotenv
-streamlit
+langchain==0.0.154
+PyPDF==3.2.1
+python-dotenv==1.0.0
+streamlit==1.18.1
+faiss-cpu==1.7.4
 streamlit-extras
-langchain_community
-langchain_groq
