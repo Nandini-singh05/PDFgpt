@@ -1,6 +1,6 @@
 import streamlit as st
-import PyPDF2
-from PyPDF2 import PdfReader
+import PyPDF
+from PyPDF import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import SentenceTransformerEmbeddings
