@@ -9,8 +9,8 @@ import os
 from langchain_groq import ChatGroq
 from langchain.chains.question_answering import load_qa_chain
 
-from secret_key import GROQ_API_KEY
-os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+# from secret_key import GROQ_API_KEY
+# os.environ["GROQ_API_KEY"] = GROQ_API_KEY
 
 # Sidebar contents
 with st.sidebar:
