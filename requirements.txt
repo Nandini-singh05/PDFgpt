@@ -6,3 +6,4 @@ pypdf
 streamlit
 streamlit-extras
 chromadb
+protobuf==3.20.*
