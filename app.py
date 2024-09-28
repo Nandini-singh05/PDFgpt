@@ -8,6 +8,8 @@ import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
+from gtts import gTTS
+import base64
 
 # Sidebar contents
 with st.sidebar:
@@ -23,6 +25,23 @@ with st.sidebar:
     ''')
     add_vertical_space(4)
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
+
+def text_to_speech(text, filename='output.mp3'):
+    """Convert text to speech and save as an MP3 file."""
+    tts = gTTS(text)
+    tts.save(filename)
+
+def autoplay_audio(file_path: str):
+    """Auto-play the audio in the Streamlit app."""
+    with open(file_path, "rb") as f:
+        data = f.read()
+        b64 = base64.b64encode(data).decode()
+        md = f"""
+            <audio controls autoplay="true">
+            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
+            </audio>
+            """
+        st.markdown(md, unsafe_allow_html=True)
 
 def main():
     st.header("Chat with your PDF📄")
@@ -53,7 +72,7 @@ def main():
             with open(f"{store_name}_chunks.pkl", 'rb') as f:
                 chunks = pickle.load(f)
             
-            with st.spinner("Loading please wait..."):
+            with st.spinner("Recreating the vector store..."):
                 embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
                 vector_store = Chroma.from_texts(chunks, embedding=embeddings)
         else:
@@ -80,5 +99,13 @@ def main():
             response = chain.run(input_documents=docs, question=query)
             st.write(response)
 
+            # Convert the response text to speech
+            speech_file = "response.mp3"
+            text_to_speech(response, speech_file)
+
+            # Play the generated speech with autoplay
+            autoplay_audio(speech_file)
+
 if __name__ == "__main__":
     main()
+
