@@ -15,8 +15,7 @@ import base64
 with st.sidebar:
     st.title("📄🤗 PDFgpt : Chat with your PDF")
     add_vertical_space(1)
-    st.markdown('''
-    ### About PDFgpt:
+    st.markdown('''### About PDFgpt:
     This application is an LLM-powered chatbot built using the following:
     - [Langchain](https://www.langchain.com/)
     - [Streamlit](https://streamlit.io/)
@@ -26,7 +25,7 @@ with st.sidebar:
     add_vertical_space(4)
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
 
-def text_to_speech(text, filename='output.mp3'):
+def text_to_speech(text, filename):
     """Convert text to speech and save as an MP3 file."""
     tts = gTTS(text)
     tts.save(filename)
@@ -93,7 +92,7 @@ def main():
         query = st.text_input("Ask questions about the PDF here:")
         
         if query:
-            docs = vector_store.similarity_search(query=query)
+            docs = vector_store.similarity_search(query=query, k=3)
             llm = ChatGroq(model="llama3-8b-8192")
             chain = load_qa_chain(llm=llm, chain_type="stuff")
             response = chain.run(input_documents=docs, question=query)
@@ -103,9 +102,8 @@ def main():
             speech_file = f"response_{query.replace(' ', '_')}.mp3"
             text_to_speech(response, speech_file)
 
-            # Play the generated speech with autoplay
-            autoplay_audio(speech_file)
+            # Clear the previous audio player and play the new audio
+            st.audio(speech_file, format="audio/mp3")
 
 if __name__ == "__main__":
     main()
-
