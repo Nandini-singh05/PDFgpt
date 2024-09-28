@@ -15,8 +15,7 @@ import base64
 with st.sidebar:
     st.title("📄🤗 PDFgpt : Chat with your PDF")
     add_vertical_space(1)
-    st.markdown('''
-    ### About PDFgpt:
+    st.markdown('''### About PDFgpt:
     This application is an LLM-powered chatbot built using the following:
     - [Langchain](https://www.langchain.com/)
     - [Streamlit](https://streamlit.io/)
@@ -93,6 +92,10 @@ def main():
         query = st.text_input("Ask questions about the PDF here:")
         
         if query:
+            # Clear previous audio file from session state to ensure new audio plays
+            if 'audio_played' in st.session_state:
+                del st.session_state.audio_played
+
             docs = vector_store.similarity_search(query=query, k=3)
             llm = ChatGroq(model="llama3-8b-8192")
             chain = load_qa_chain(llm=llm, chain_type="stuff")
@@ -104,6 +107,9 @@ def main():
 
             # Play the generated speech with autoplay
             autoplay_audio(speech_file)
+
+            # Store a flag in session state to keep track of played audio
+            st.session_state.audio_played = True
 
             # Display the response text below the audio player
             st.write(response)
