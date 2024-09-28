@@ -5,5 +5,5 @@ langchain_groq
 pypdf
 streamlit
 streamlit-extras
-chromadb
+chromadb==0.3.29
 protobuf==3.20.*
