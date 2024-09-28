@@ -1,6 +1,5 @@
 import streamlit as st
 from pypdf import PdfReader
-import chromadb
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
