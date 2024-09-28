@@ -2,7 +2,7 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from langchain.vectorstores import Chroma  # Import Chroma instead of FAISS
 import pickle
 import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -24,18 +24,8 @@ with st.sidebar:
     add_vertical_space(4)
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
 
-def load_embeddings():
-    """Download and load SentenceTransformer embeddings only once per session."""
-    if 'embeddings' not in st.session_state:
-        with st.spinner("Downloading embeddings, please wait..."):
-            st.session_state.embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-        st.success("Embeddings loaded!")
-
 def main():
     st.header("Chat with your PDF📄")
-
-    # Load embeddings the first time the app runs
-    load_embeddings()
 
     # Ask user to upload PDF
     pdf = st.file_uploader("Upload PDF here", type="pdf")
@@ -62,8 +52,11 @@ def main():
             with open(f"{store_name}.pkl", 'rb') as f:
                 vector_store = pickle.load(f)
         else:
-            # Use the embeddings stored in session_state
-            embeddings = st.session_state.embeddings
+            # Show progress message during embedding download
+            with st.spinner("Downloading and loading embeddings, please wait..."):
+                embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            
+            st.success("Embeddings loaded successfully!")
             
             # Use Chroma for vector storage instead of FAISS
             vector_store = Chroma.from_texts(chunks, embedding=embeddings)
