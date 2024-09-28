@@ -2,7 +2,7 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain.vectorstores import Chroma  # Import Chroma instead of FAISS
 import pickle
 import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -10,7 +10,6 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 from gtts import gTTS
 import base64
-import threading
 
 # Sidebar contents
 with st.sidebar:
@@ -27,7 +26,7 @@ with st.sidebar:
     add_vertical_space(4)
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
 
-def text_to_speech(text, filename):
+def text_to_speech(text, filename='output.mp3'):
     """Convert text to speech and save as an MP3 file."""
     tts = gTTS(text)
     tts.save(filename)
@@ -94,20 +93,15 @@ def main():
         query = st.text_input("Ask questions about the PDF here:")
         
         if query:
-            docs = vector_store.similarity_search(query=query, k=3)
+            docs = vector_store.similarity_search(query=query)
             llm = ChatGroq(model="llama3-8b-8192")
             chain = load_qa_chain(llm=llm, chain_type="stuff")
             response = chain.run(input_documents=docs, question=query)
-            
-            # Display text response
             st.write(response)
 
-            # Generate a unique filename for the response audio
+            # Generate a unique filename for each response to avoid caching
             speech_file = f"response_{query.replace(' ', '_')}.mp3"
-            
-            # Create a thread for TTS conversion to avoid blocking the main thread
-            tts_thread = threading.Thread(target=text_to_speech, args=(response, speech_file))
-            tts_thread.start()
+            text_to_speech(response, speech_file)
 
             # Play the generated speech with autoplay
             autoplay_audio(speech_file)
