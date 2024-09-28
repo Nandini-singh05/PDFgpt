@@ -2,10 +2,10 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
+from langchain.vectorstores import Chroma  # Import Chroma instead of FAISS
 import pickle
 import os
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 
@@ -25,10 +25,10 @@ with st.sidebar:
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
 
 def load_embeddings():
-    """Download and load embeddings only once per session."""
+    """Download and load SentenceTransformer embeddings only once per session."""
     if 'embeddings' not in st.session_state:
         with st.spinner("Downloading embeddings, please wait..."):
-            st.session_state.embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+            st.session_state.embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
         st.success("Embeddings loaded!")
 
 def main():
@@ -83,4 +83,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
