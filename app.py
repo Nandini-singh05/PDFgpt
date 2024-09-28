@@ -36,7 +36,7 @@ def autoplay_audio(file_path: str):
         data = f.read()
         b64 = base64.b64encode(data).decode()
         md = f"""
-            <audio controls autoplay="true">
+            <audio controls autoplay="true" style="width: 100%;">
             <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
             </audio>
             """
@@ -96,14 +96,17 @@ def main():
             llm = ChatGroq(model="llama3-8b-8192")
             chain = load_qa_chain(llm=llm, chain_type="stuff")
             response = chain.run(input_documents=docs, question=query)
-            st.write(response)
 
             # Generate a unique filename for each response to avoid caching
             speech_file = f"response_{query.replace(' ', '_')}.mp3"
             text_to_speech(response, speech_file)
 
-            # Clear the previous audio player and play the new audio
-            st.audio(speech_file, format="audio/mp3")
+            # Play the generated speech with autoplay
+            autoplay_audio(speech_file)
+
+            # Display the response text below the audio player
+            st.write(response)
 
 if __name__ == "__main__":
     main()
+
