@@ -2,7 +2,7 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
+from langchain.vectorstores import Chroma  # Import Chroma instead of FAISS
 import pickle
 import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -48,9 +48,14 @@ def main():
         # Store name derived from the PDF file name
         store_name = pdf.name[:-4]
 
-        if os.path.exists(f"{store_name}.pkl"):
-            with open(f"{store_name}.pkl", 'rb') as f:
-                vector_store = pickle.load(f)
+        if os.path.exists(f"{store_name}_chunks.pkl"):
+            # Load stored chunks and recreate vector store
+            with open(f"{store_name}_chunks.pkl", 'rb') as f:
+                chunks = pickle.load(f)
+            
+            with st.spinner("Recreating the vector store..."):
+                embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+                vector_store = Chroma.from_texts(chunks, embedding=embeddings)
         else:
             # Show progress message during embedding download
             with st.spinner("Downloading and loading embeddings, please wait..."):
@@ -61,8 +66,9 @@ def main():
             # Use Chroma for vector storage instead of FAISS
             vector_store = Chroma.from_texts(chunks, embedding=embeddings)
 
-            with open(f"{store_name}.pkl", "wb") as f:
-                pickle.dump(vector_store, f)
+            # Store the chunks for future use
+            with open(f"{store_name}_chunks.pkl", "wb") as f:
+                pickle.dump(chunks, f)
         
         # Accept user question/query
         query = st.text_input("Ask questions about the PDF here:")
