@@ -53,7 +53,7 @@ def main():
             with open(f"{store_name}_chunks.pkl", 'rb') as f:
                 chunks = pickle.load(f)
             
-            with st.spinner("Recreating the vector store..."):
+            with st.spinner("Loading please wait..."):
                 embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
                 vector_store = Chroma.from_texts(chunks, embedding=embeddings)
         else:
