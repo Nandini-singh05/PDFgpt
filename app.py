@@ -2,7 +2,7 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma  # Import Chroma instead of FAISS
+from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
 import pickle
 import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -15,7 +15,8 @@ import base64
 with st.sidebar:
     st.title("📄🤗 PDFgpt : Chat with your PDF")
     add_vertical_space(1)
-    st.markdown('''### About PDFgpt:
+    st.markdown('''
+    ### About PDFgpt:
     This application is an LLM-powered chatbot built using the following:
     - [Langchain](https://www.langchain.com/)
     - [Streamlit](https://streamlit.io/)
