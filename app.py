@@ -2,7 +2,7 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma  # Import Chroma instead of FAISS
+from langchain_community.vectorstores import Chroma
 import pickle
 import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
