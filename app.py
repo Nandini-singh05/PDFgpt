@@ -9,13 +9,14 @@ from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 from gtts import gTTS
-import base64
+
 
 # Sidebar contents
 with st.sidebar:
     st.title("📄🤗 PDFgpt : Chat with your PDF")
     add_vertical_space(1)
-    st.markdown('''### About PDFgpt:
+    st.markdown('''
+    ### About PDFgpt:
     This application is an LLM-powered chatbot built using the following:
     - [Langchain](https://www.langchain.com/)
     - [Streamlit](https://streamlit.io/)
@@ -24,23 +25,12 @@ with st.sidebar:
     ''')
     add_vertical_space(4)
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
+ 
 
 def text_to_speech(text, filename):
     """Convert text to speech and save as an MP3 file."""
     tts = gTTS(text)
     tts.save(filename)
-
-def autoplay_audio(file_path: str):
-    """Auto-play the audio in the Streamlit app."""
-    with open(file_path, "rb") as f:
-        data = f.read()
-        b64 = base64.b64encode(data).decode()
-        md = f"""
-            <audio controls autoplay="true" style="width: 100%;">
-            <source src="data:audio/mp3;base64,{b64}" type="audio/mp3">
-            </audio>
-            """
-        st.markdown(md, unsafe_allow_html=True)
 
 def main():
     st.header("Chat with your PDF📄")
@@ -92,10 +82,6 @@ def main():
         query = st.text_input("Ask questions about the PDF here:")
         
         if query:
-            # Clear previous audio file from session state to ensure new audio plays
-            if 'audio_played' in st.session_state:
-                del st.session_state.audio_played
-
             docs = vector_store.similarity_search(query=query, k=3)
             llm = ChatGroq(model="llama3-8b-8192")
             chain = load_qa_chain(llm=llm, chain_type="stuff")
@@ -105,15 +91,11 @@ def main():
             speech_file = f"response_{query.replace(' ', '_')}.mp3"
             text_to_speech(response, speech_file)
 
-            # Play the generated speech with autoplay
-            autoplay_audio(speech_file)
-
-            # Store a flag in session state to keep track of played audio
-            st.session_state.audio_played = True
+            # Clear the previous audio player and play the new audio
+            st.audio(speech_file, format="audio/mp3")
 
             # Display the response text below the audio player
             st.write(response)
 
 if __name__ == "__main__":
     main()
-
