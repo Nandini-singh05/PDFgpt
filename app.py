@@ -53,6 +53,15 @@ def ocr_extract_text(pdf):
     
     return text
 
+def correct_orientation_and_extract_text(image):
+    """Correct image orientation and extract text using OCR."""
+    # Use pytesseract to detect orientation and rotate image accordingly
+    orientation_data = pytesseract.image_to_osd(image)
+    if "Rotate" in orientation_data:
+        angle = int(orientation_data.split("\n")[2].split(":")[1].strip())
+        image = image.rotate(angle, expand=True)
+    return pytesseract.image_to_string(image)
+
 def main():
     st.header("Chat with your PDF📄")
 
@@ -98,7 +107,7 @@ def main():
                 
                 st.success("Embeddings loaded successfully!")
                 
-                vector_store = Chroma.from_texts(chunks, embedding=embedding)
+                vector_store = Chroma.from_texts(chunks, embedding=embeddings)
 
                 # Store the chunks for future use
                 with open(f"{store_name}_chunks.pkl", "wb") as f:
