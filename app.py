@@ -48,6 +48,9 @@ def main():
             st.error("Text extraction or splitting failed, resulting in no chunks to process.")
             return
 
+        # Generate a unique ID for each chunk
+        chunk_ids = [str(uuid.uuid4()) for _ in chunks]
+
         # Store name derived from the PDF file name
         store_name = pdf.name[:-4]
 
@@ -58,7 +61,7 @@ def main():
             
             with st.spinner("Recreating the vector store..."):
                 embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-                vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=[str(uuid4()) for _ in chunks])
+                vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=chunk_ids)
         else:
             # Show progress message during embedding download
             with st.spinner("Downloading and loading embeddings, please wait..."):
@@ -66,8 +69,8 @@ def main():
             
             st.success("Embeddings loaded successfully!")
             
-            # Use Chroma for vector storage, ensuring unique IDs for each chunk
-            vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=[str(uuid4()) for _ in chunks])
+            # Use Chroma for vector storage with generated IDs
+            vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=chunk_ids)
 
             # Store the chunks for future use
             with open(f"{store_name}_chunks.pkl", "wb") as f:
@@ -94,4 +97,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
