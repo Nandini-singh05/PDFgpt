@@ -4,7 +4,7 @@ import io
 from PIL import Image
 from io import BytesIO
 import streamlit as st
-from PyPDF2 import PdfReader
+from pypdf2 import PdfReader
 import re
 import pickle
 import os
