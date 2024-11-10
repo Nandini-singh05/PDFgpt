@@ -1,6 +1,19 @@
+import streamlit as st
+from pypdf import PdfReader
+from streamlit_extras.add_vertical_space import add_vertical_space
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
+import pickle
+import os
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain.chains.question_answering import load_qa_chain
+from langchain_groq import ChatGroq
+from gtts import gTTS
+from PIL import Image
+import pytesseract
+import io
 from uuid import uuid4
 
-# Code inside the main function
 def main():
     st.header("Chat with your PDF📄")
 
@@ -11,17 +24,30 @@ def main():
         pdf_reader = PdfReader(pdf)
         text = ""
 
+        # Extract text from each page in the PDF
         for page in pdf_reader.pages:
-            text += extract_text_from_page(page)
-        
+            page_text = extract_text_from_page(page)
+            if page_text:
+                text += page_text
+
+        # Check if any text was extracted
+        if not text.strip():
+            st.error("No text could be extracted from this PDF. It may be a scanned document without recognizable text.")
+            return
+
+        # Split the extracted text into chunks
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             length_function=len
         )
-
         chunks = text_splitter.split_text(text=text)
-        
+
+        # Ensure there are chunks to process
+        if not chunks:
+            st.error("Text extraction or splitting failed, resulting in no chunks to process.")
+            return
+
         # Store name derived from the PDF file name
         store_name = pdf.name[:-4]
 
@@ -40,7 +66,7 @@ def main():
             
             st.success("Embeddings loaded successfully!")
             
-            # Use Chroma for vector storage instead of FAISS, add unique IDs for each chunk
+            # Use Chroma for vector storage, ensuring unique IDs for each chunk
             vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=[str(uuid4()) for _ in chunks])
 
             # Store the chunks for future use
