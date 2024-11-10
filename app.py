@@ -1,48 +1,6 @@
-import streamlit as st
-from pypdf import PdfReader
-from streamlit_extras.add_vertical_space import add_vertical_space
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
-import pickle
-import os
-from langchain_community.embeddings import SentenceTransformerEmbeddings
-from langchain.chains.question_answering import load_qa_chain
-from langchain_groq import ChatGroq
-from gtts import gTTS
-from PIL import Image
-import pytesseract
-import io
+from uuid import uuid4
 
-# Sidebar contents
-with st.sidebar:
-    st.title("📄🤗 PDFgpt : Chat with your PDF")
-    add_vertical_space(1)
-    st.markdown('''
-    ### About PDFgpt:
-    This application is an LLM-powered chatbot built using the following:
-    - [Langchain](https://www.langchain.com/)
-    - [Streamlit](https://streamlit.io/)
-    - [Hugging Face](https://huggingface.co/)
-    - [Groq](https://groq.com/groqcloud/)
-    ''')
-    add_vertical_space(4)
-    st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
-
-def extract_text_from_page(page):
-    """Extract text from a PDF page, with OCR for image-based text."""
-    text = page.extract_text()
-    if text:
-        return text
-    else:
-        # Use OCR for scanned pages or image-based text
-        img = page.to_image()  # Converts PDF page to an image
-        return pytesseract.image_to_string(img)
-
-def text_to_speech(text, filename):
-    """Convert text to speech and save as an MP3 file."""
-    tts = gTTS(text)
-    tts.save(filename)
-
+# Code inside the main function
 def main():
     st.header("Chat with your PDF📄")
 
@@ -74,7 +32,7 @@ def main():
             
             with st.spinner("Recreating the vector store..."):
                 embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-                vector_store = Chroma.from_texts(chunks, embedding=embeddings)
+                vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=[str(uuid4()) for _ in chunks])
         else:
             # Show progress message during embedding download
             with st.spinner("Downloading and loading embeddings, please wait..."):
@@ -82,8 +40,8 @@ def main():
             
             st.success("Embeddings loaded successfully!")
             
-            # Use Chroma for vector storage instead of FAISS
-            vector_store = Chroma.from_texts(chunks, embedding=embeddings)
+            # Use Chroma for vector storage instead of FAISS, add unique IDs for each chunk
+            vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=[str(uuid4()) for _ in chunks])
 
             # Store the chunks for future use
             with open(f"{store_name}_chunks.pkl", "wb") as f:
