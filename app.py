@@ -98,7 +98,7 @@ def main():
                 
                 st.success("Embeddings loaded successfully!")
                 
-                vector_store = Chroma.from_texts(chunks, embedding=embeddings)
+                vector_store = Chroma.from_texts(chunks, embedding=embedding)
 
                 # Store the chunks for future use
                 with open(f"{store_name}_chunks.pkl", "wb") as f:
