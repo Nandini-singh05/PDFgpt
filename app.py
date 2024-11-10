@@ -12,6 +12,8 @@ from gtts import gTTS
 import pytesseract
 from pdf2image import convert_from_path
 from PIL import Image
+import fitz  # PyMuPDF
+from io import BytesIO
 
 # Sidebar contents
 with st.sidebar:
@@ -33,34 +35,36 @@ def text_to_speech(text, filename):
     tts = gTTS(text)
     tts.save(filename)
 
-def extract_text_from_page(page):
-    """Extract text from a page with orientation correction using OCR if needed."""
-    text = page.extract_text()
-    
-    if not text:  # If text extraction fails, fallback to OCR
-        st.warning("Text extraction failed. Applying OCR for orientation correction.")
-        return None
-    return text
+def extract_text_from_image_pdf(pdf):
+    """Extract text from an image-based PDF using OCR."""
+    try:
+        pdf_document = fitz.open(stream=pdf.read())
+        extracted_text = ""
+        for page_num in range(pdf_document.page_count):
+            try:
+                page = pdf_document.load_page(page_num)
+                pix = page.get_pixmap()
+                img = Image.open(BytesIO(pix.tobytes()))
+                ocr_text = pytesseract.image_to_string(img)
+                extracted_text += ocr_text
+            except Exception as e:
+                st.warning(f"Error processing page {page_num}: {str(e)}")
+        return extracted_text
+    except Exception as e:
+        st.error(f"Error opening the PDF: {str(e)}")
+        return ""
 
-def ocr_extract_text(pdf):
-    """Extract text from an image-based or rotated PDF using OCR."""
-    images = convert_from_path(pdf)
-    text = ""
-    
-    for image in images:
-        # Use OCR to detect text in the correct orientation
-        text += pytesseract.image_to_string(image)
-    
-    return text
-
-def correct_orientation_and_extract_text(image):
-    """Correct image orientation and extract text using OCR."""
-    # Use pytesseract to detect orientation and rotate image accordingly
-    orientation_data = pytesseract.image_to_osd(image)
-    if "Rotate" in orientation_data:
-        angle = int(orientation_data.split("\n")[2].split(":")[1].strip())
-        image = image.rotate(angle, expand=True)
-    return pytesseract.image_to_string(image)
+def extract_text_from_pdf(pdf):
+    """Extract text from a standard text-based PDF."""
+    if pdf is not None:
+        text = ""
+        try:
+            pdf_reader = PdfReader(pdf)
+            for page in pdf_reader.pages:
+                text += page.extract_text()
+        except Exception as e:
+            st.error(f"Error extracting text from PDF: {str(e)}")
+        return text
 
 def main():
     st.header("Chat with your PDF📄")
@@ -69,70 +73,68 @@ def main():
     pdf = st.file_uploader("Upload PDF here", type="pdf")
     
     if pdf is not None:
-        pdf_reader = PdfReader(pdf)
-        text = ""
-
-        for page in pdf_reader.pages:
-            page_text = extract_text_from_page(page)
-            if page_text:
-                text += page_text
-            else:
-                # If no text was extracted from any pages, use OCR on the entire PDF
-                text = ocr_extract_text(pdf)
-                break
-
-        text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
-            length_function=len
-        )
-
-        chunks = text_splitter.split_text(text=text)
+        # First attempt to extract text from the PDF (text-based PDF)
+        text = extract_text_from_pdf(pdf)
         
-        # Check if chunks are not empty before proceeding
-        if chunks:
-            store_name = pdf.name[:-4]
+        if not text:  # If no text is extracted, try OCR (image-based PDF)
+            st.warning("No text found. Attempting OCR on image-based PDF.")
+            text = extract_text_from_image_pdf(pdf)
+        
+        if text:
+            text_splitter = RecursiveCharacterTextSplitter(
+                chunk_size=1000,
+                chunk_overlap=200,
+                length_function=len
+            )
 
-            if os.path.exists(f"{store_name}_chunks.pkl"):
-                # Load stored chunks and recreate vector store
-                with open(f"{store_name}_chunks.pkl", 'rb') as f:
-                    chunks = pickle.load(f)
-                
-                with st.spinner("Recreating the vector store..."):
-                    embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+            chunks = text_splitter.split_text(text=text)
+
+            # Check if chunks are not empty before proceeding
+            if chunks:
+                store_name = pdf.name[:-4]
+
+                if os.path.exists(f"{store_name}_chunks.pkl"):
+                    # Load stored chunks and recreate vector store
+                    with open(f"{store_name}_chunks.pkl", 'rb') as f:
+                        chunks = pickle.load(f)
+
+                    with st.spinner("Recreating the vector store..."):
+                        embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+                        vector_store = Chroma.from_texts(chunks, embedding=embeddings)
+                else:
+                    with st.spinner("Downloading and loading embeddings, please wait..."):
+                        embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+
+                    st.success("Embeddings loaded successfully!")
+                    
                     vector_store = Chroma.from_texts(chunks, embedding=embeddings)
+
+                    # Store the chunks for future use
+                    with open(f"{store_name}_chunks.pkl", "wb") as f:
+                        pickle.dump(chunks, f)
+
+                # Accept user question/query
+                query = st.text_input("Ask questions about the PDF here:")
+
+                if query:
+                    docs = vector_store.similarity_search(query=query, k=3)
+                    llm = ChatGroq(model="llama3-8b-8192")
+                    chain = load_qa_chain(llm=llm, chain_type="stuff")
+                    response = chain.run(input_documents=docs, question=query)
+
+                    # Generate a unique filename for each response to avoid caching
+                    speech_file = f"response_{query.replace(' ', '_')}.mp3"
+                    text_to_speech(response, speech_file)
+
+                    # Clear the previous audio player and play the new audio
+                    st.audio(speech_file, format="audio/mp3")
+
+                    # Display the response text below the audio player
+                    st.write(response)
             else:
-                with st.spinner("Downloading and loading embeddings, please wait..."):
-                    embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-                
-                st.success("Embeddings loaded successfully!")
-                
-                vector_store = Chroma.from_texts(chunks, embedding=embeddings)
-
-                # Store the chunks for future use
-                with open(f"{store_name}_chunks.pkl", "wb") as f:
-                    pickle.dump(chunks, f)
-            
-            # Accept user question/query
-            query = st.text_input("Ask questions about the PDF here:")
-            
-            if query:
-                docs = vector_store.similarity_search(query=query, k=3)
-                llm = ChatGroq(model="llama3-8b-8192")
-                chain = load_qa_chain(llm=llm, chain_type="stuff")
-                response = chain.run(input_documents=docs, question=query)
-
-                # Generate a unique filename for each response to avoid caching
-                speech_file = f"response_{query.replace(' ', '_')}.mp3"
-                text_to_speech(response, speech_file)
-
-                # Clear the previous audio player and play the new audio
-                st.audio(speech_file, format="audio/mp3")
-
-                # Display the response text below the audio player
-                st.write(response)
+                st.error("No text found in PDF to create chunks. Please check your PDF content.")
         else:
-            st.error("No text found in PDF to create chunks. Please check your PDF content.")
-
+            st.error("No text found or OCR failed to extract text. Please check the PDF.")
+    
 if __name__ == "__main__":
     main()
