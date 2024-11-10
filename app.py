@@ -9,7 +9,9 @@ from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 from gtts import gTTS
-
+from PIL import Image
+import pytesseract
+import io
 
 # Sidebar contents
 with st.sidebar:
@@ -25,7 +27,16 @@ with st.sidebar:
     ''')
     add_vertical_space(4)
     st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
- 
+
+def extract_text_from_page(page):
+    """Extract text from a PDF page, with OCR for image-based text."""
+    text = page.extract_text()
+    if text:
+        return text
+    else:
+        # Use OCR for scanned pages or image-based text
+        img = page.to_image()  # Converts PDF page to an image
+        return pytesseract.image_to_string(img)
 
 def text_to_speech(text, filename):
     """Convert text to speech and save as an MP3 file."""
@@ -43,7 +54,7 @@ def main():
         text = ""
 
         for page in pdf_reader.pages:
-            text += page.extract_text()
+            text += extract_text_from_page(page)
         
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
@@ -99,3 +110,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
