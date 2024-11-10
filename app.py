@@ -2,17 +2,56 @@ import streamlit as st
 from pypdf import PdfReader
 from streamlit_extras.add_vertical_space import add_vertical_space
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma  # Import Chroma instead of FAISS
+from langchain_community.vectorstores import Chroma
 import pickle
 import os
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 from gtts import gTTS
-from PIL import Image
 import pytesseract
-import io
-from uuid import uuid4
+from pdf2image import convert_from_path
+from PIL import Image
+
+# Sidebar contents
+with st.sidebar:
+    st.title("📄🤗 PDFgpt : Chat with your PDF")
+    add_vertical_space(1)
+    st.markdown('''
+    ### About PDFgpt:
+    This application is an LLM-powered chatbot built using the following:
+    - [Langchain](https://www.langchain.com/)
+    - [Streamlit](https://streamlit.io/)
+    - [Hugging Face](https://huggingface.co/)
+    - [Groq](https://groq.com/groqcloud/)
+    ''')
+    add_vertical_space(4)
+    st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
+
+def text_to_speech(text, filename):
+    """Convert text to speech and save as an MP3 file."""
+    tts = gTTS(text)
+    tts.save(filename)
+
+def extract_text_from_page(page):
+    """Extract text from a page with orientation correction using OCR if needed."""
+    text = page.extract_text()
+    
+    if not text:  # If text extraction fails, fallback to OCR
+        st.warning("Text extraction failed. Applying OCR for orientation correction.")
+        return None
+    return text
+
+def ocr_extract_text(pdf):
+    """Extract text from an image-based or rotated PDF using OCR."""
+    images = convert_from_path(pdf)
+    text = ""
+    
+    for image in images:
+        # Use OCR to detect text in the correct orientation
+        text += pytesseract.image_to_string(image)
+    
+    return text
 
 def main():
     st.header("Chat with your PDF📄")
@@ -24,33 +63,23 @@ def main():
         pdf_reader = PdfReader(pdf)
         text = ""
 
-        # Extract text from each page in the PDF
         for page in pdf_reader.pages:
             page_text = extract_text_from_page(page)
             if page_text:
                 text += page_text
+            else:
+                # If no text was extracted from any pages, use OCR on the entire PDF
+                text = ocr_extract_text(pdf)
+                break
 
-        # Check if any text was extracted
-        if not text.strip():
-            st.error("No text could be extracted from this PDF. It may be a scanned document without recognizable text.")
-            return
-
-        # Split the extracted text into chunks
         text_splitter = RecursiveCharacterTextSplitter(
             chunk_size=1000,
             chunk_overlap=200,
             length_function=len
         )
+
         chunks = text_splitter.split_text(text=text)
-
-        # Ensure there are chunks to process
-        if not chunks:
-            st.error("Text extraction or splitting failed, resulting in no chunks to process.")
-            return
-
-        # Generate a unique ID for each chunk
-        chunk_ids = [str(uuid.uuid4()) for _ in chunks]
-
+        
         # Store name derived from the PDF file name
         store_name = pdf.name[:-4]
 
@@ -61,7 +90,7 @@ def main():
             
             with st.spinner("Recreating the vector store..."):
                 embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-                vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=chunk_ids)
+                vector_store = Chroma.from_texts(chunks, embedding=embeddings)
         else:
             # Show progress message during embedding download
             with st.spinner("Downloading and loading embeddings, please wait..."):
@@ -69,8 +98,8 @@ def main():
             
             st.success("Embeddings loaded successfully!")
             
-            # Use Chroma for vector storage with generated IDs
-            vector_store = Chroma.from_texts(chunks, embedding=embeddings, ids=chunk_ids)
+            # Use Chroma for vector storage instead of FAISS
+            vector_store = Chroma.from_texts(chunks, embedding=embeddings)
 
             # Store the chunks for future use
             with open(f"{store_name}_chunks.pkl", "wb") as f:
