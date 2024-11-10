@@ -10,7 +10,7 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 from gtts import gTTS
 import pytesseract
-from pdf2image import convert_from_path
+# from pdf2image import convert_from_path
 from PIL import Image
 import fitz  # PyMuPDF
 from io import BytesIO
