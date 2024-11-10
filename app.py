@@ -73,11 +73,13 @@ def main():
     pdf = st.file_uploader("Upload PDF here", type="pdf")
     
     if pdf is not None:
-        # First attempt to extract text from the PDF (text-based PDF)
-        text = extract_text_from_pdf(pdf)
-        
-        if not text:  # If no text is extracted, try OCR (image-based PDF)
-            st.warning("No text found. Attempting OCR on image-based PDF.")
+        # Provide an option for the user to select PDF type
+        pdf_type = st.radio("Select the type of PDF", ("Text-based", "Image-based"))
+
+        if pdf_type == "Text-based":
+            text = extract_text_from_pdf(pdf)
+        else:
+            st.warning("No text found in text-based PDF. Attempting OCR for image-based PDF.")
             text = extract_text_from_image_pdf(pdf)
         
         if text:
