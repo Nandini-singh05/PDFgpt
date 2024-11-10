@@ -150,7 +150,7 @@ def main():
     # In the main function, where we call similarity_search:
     if query and collection:
         # Perform similarity search using Chroma's similarity_search method
-        results = collection.similarity_search(query=query, k=3)
+        results = collection.similarity_search(query=query, k=5)
 
         # Wrap documents in the correct format
         docs = [Document(page_content=doc) for doc in results]
