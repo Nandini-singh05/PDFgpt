@@ -134,7 +134,7 @@ def main():
                     # Display the response text below the audio player
                     st.write(response)
             else:
-                st.error("No text found in PDF to create chunks. Please check your PDF content.")
+                st.error("No valid text found in the PDF. Please check the content of your PDF or try a different one.")
         else:
             st.error("No text found or OCR failed to extract text. Please check the PDF.")
     
