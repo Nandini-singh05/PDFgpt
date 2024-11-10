@@ -10,3 +10,4 @@ protobuf==3.20.*
 gtts
 fitz
 PyMuPDF
+pytesseract
