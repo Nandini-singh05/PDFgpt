@@ -3,6 +3,7 @@ langchain_community
 langchain_huggingface
 langchain_groq
 PyPDF2==1.26.0
+openpyxl
 streamlit
 streamlit-extras
 chromadb==0.3.29
