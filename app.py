@@ -1,42 +1,42 @@
+import fitz  # PyMuPDF
+import pytesseract
+import io
+from PIL import Image
+from io import BytesIO
 import streamlit as st
-from pypdf import PdfReader
-from streamlit_extras.add_vertical_space import add_vertical_space
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.vectorstores import Chroma
+from PyPDF2 import PdfReader
+import re
 import pickle
 import os
-from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.chains.question_answering import load_qa_chain
+from langchain.schema import Document
 from langchain_groq import ChatGroq
 from gtts import gTTS
-import pytesseract
-from pdf2image import convert_from_path
-from PIL import Image
-import fitz  # PyMuPDF
-from io import BytesIO
+from chromadb import Client
+import torch
+from transformers import AutoTokenizer, AutoModel
 
-# Sidebar contents
-with st.sidebar:
-    st.title("📄🤗 PDFgpt : Chat with your PDF")
-    add_vertical_space(1)
-    st.markdown('''
-    ### About PDFgpt:
-    This application is an LLM-powered chatbot built using the following:
-    - [Langchain](https://www.langchain.com/)
-    - [Streamlit](https://streamlit.io/)
-    - [Hugging Face](https://huggingface.co/)
-    - [Groq](https://groq.com/groqcloud/)
-    ''')
-    add_vertical_space(4)
-    st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
+# Initialize Hugging Face tokenizer and model
+model_name = "sentence-transformers/all-MiniLM-L6-v2"
+tokenizer = AutoTokenizer.from_pretrained(model_name)
+model = AutoModel.from_pretrained(model_name)
 
-def text_to_speech(text, filename):
-    """Convert text to speech and save as an MP3 file."""
-    tts = gTTS(text)
-    tts.save(filename)
+def get_embeddings(texts):
+    inputs = tokenizer(texts, return_tensors="pt", padding=True, truncation=True)
+    with torch.no_grad():
+        embeddings = model(**inputs).last_hidden_state.mean(dim=1)
+    return embeddings.numpy()
+
+client = Client()
+
+def clean_collection_name(name):
+    cleaned_name = re.sub(r'[^a-zA-Z0-9-_]', '-', name)
+    cleaned_name = cleaned_name[:63].strip('-_')
+    if len(cleaned_name) < 3:
+        cleaned_name += 'pdf'
+    return cleaned_name
 
 def extract_text_from_image_pdf(pdf):
-    """Extract text from an image-based PDF using OCR."""
     try:
         pdf_document = fitz.open(stream=pdf.read())
         extracted_text = ""
@@ -55,7 +55,6 @@ def extract_text_from_image_pdf(pdf):
         return ""
 
 def extract_text_from_pdf(pdf):
-    """Extract text from a standard text-based PDF."""
     if pdf is not None:
         text = ""
         try:
@@ -66,77 +65,114 @@ def extract_text_from_pdf(pdf):
             st.error(f"Error extracting text from PDF: {str(e)}")
         return text
 
+def process_pdf_for_embeddings(pdf):
+    if pdf is None:
+        return None
+    
+    pdf_type = st.radio(
+        "Select the type of the PDF",
+        ("Text-Based PDF", "Image-Based PDF (Requires OCR)")
+    )
+
+    if pdf_type == "Text-Based PDF":
+        text = extract_text_from_pdf(pdf)
+    elif pdf_type == "Image-Based PDF (Requires OCR)":
+        text = extract_text_from_image_pdf(pdf)
+
+    if not text:
+        st.error("No text extracted from the PDF.")
+        return None
+    
+    chunks = text.split("\n")
+    
+    if not chunks:
+        st.error("No valid chunks found in the PDF text.")
+        return None
+
+    embeddings = get_embeddings(chunks)
+    
+    store_name = clean_collection_name(pdf.name[:-4])
+    st.write(f"Embedding store name: {store_name}")
+    
+    # Check if embeddings data already exists
+    if os.path.exists(f"{store_name}_data.pkl"):
+        with open(f"{store_name}_data.pkl", "rb") as f:
+            data = pickle.load(f)
+            chunks = data["chunks"]
+            embeddings = data["embeddings"]
+        st.write('Loaded embeddings from disk.')
+    else:
+        data = {"chunks": chunks, "embeddings": embeddings}
+        with open(f"{store_name}_data.pkl", "wb") as f:
+            pickle.dump(data, f)
+        st.write('Saved embeddings to disk.')
+
+    # Create or get Chroma collection
+    try:
+        collection = client.get_collection(store_name)
+    except Exception:
+        collection = client.create_collection(name=store_name)
+    
+    # Add embeddings to the collection
+    for idx, chunk in enumerate(chunks):
+        collection.add(
+            ids=[f"{store_name}_{idx}"],
+            documents=[chunk],
+            metadatas=[{"source": f"page_{idx+1}"}],
+            embeddings=embeddings[idx].tolist(),
+        )
+
+    st.write(f"Done processing the PDF for embeddings. Total chunks: {len(chunks)}")
+
+    return collection  # Return the collection for querying
+
+def text_to_speech(text):
+    """Convert text to speech and return as a BytesIO stream."""
+    tts = gTTS(text)
+    mp3_stream = BytesIO()
+    tts.write_to_fp(mp3_stream)  # Use write_to_fp instead of save()
+    mp3_stream.seek(0)  # Reset the stream position to the beginning
+    return mp3_stream
+
+
+# Assuming the required imports and initializations are already done as per your provided code
+
 def main():
-    st.header("Chat with your PDF📄")
+    st.title("PDF Text Extraction and Embedding with Hugging Face & Chroma")
+    pdf = st.file_uploader("Upload a PDF file", type=["pdf"])
 
-    # Ask user to upload PDF
-    pdf = st.file_uploader("Upload PDF here", type="pdf")
+    if pdf:
+        collection = process_pdf_for_embeddings(pdf)  # Retrieve the collection
     
-    if pdf is not None:
-        # Provide an option for the user to select PDF type
-        pdf_type = st.radio("Select the type of PDF", ("Text-based", "Image-based"))
-
-        if pdf_type == "Text-based":
-            text = extract_text_from_pdf(pdf)
-        else:
-            st.warning("No text found in text-based PDF. Attempting OCR for image-based PDF.")
-            text = extract_text_from_image_pdf(pdf)
-        
-        if text:
-            text_splitter = RecursiveCharacterTextSplitter(
-                chunk_size=1000,
-                chunk_overlap=200,
-                length_function=len
-            )
-
-            chunks = text_splitter.split_text(text=text)
-
-            # Check if chunks are not empty before proceeding
-            if chunks:
-                store_name = pdf.name[:-4]
-
-                if os.path.exists(f"{store_name}_chunks.pkl"):
-                    # Load stored chunks and recreate vector store
-                    with open(f"{store_name}_chunks.pkl", 'rb') as f:
-                        chunks = pickle.load(f)
-
-                    with st.spinner("Recreating the vector store..."):
-                        embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-                        vector_store = Chroma.from_texts(chunks, embedding=embeddings)
-                else:
-                    with st.spinner("Downloading and loading embeddings, please wait..."):
-                        embeddings = SentenceTransformerEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-
-                    st.success("Embeddings loaded successfully!")
-                    
-                    vector_store = Chroma.from_texts(chunks, embedding=embeddings)
-
-                    # Store the chunks for future use
-                    with open(f"{store_name}_chunks.pkl", "wb") as f:
-                        pickle.dump(chunks, f)
-
-                # Accept user question/query
-                query = st.text_input("Ask questions about the PDF here:")
-
-                if query:
-                    docs = vector_store.similarity_search(query=query, k=3)
-                    llm = ChatGroq(model="llama3-8b-8192")
-                    chain = load_qa_chain(llm=llm, chain_type="stuff")
-                    response = chain.run(input_documents=docs, question=query)
-
-                    # Generate a unique filename for each response to avoid caching
-                    speech_file = f"response_{query.replace(' ', '_')}.mp3"
-                    text_to_speech(response, speech_file)
-
-                    # Clear the previous audio player and play the new audio
-                    st.audio(speech_file, format="audio/mp3")
-
-                    # Display the response text below the audio player
-                    st.write(response)
-            else:
-                st.error("No valid text found in the PDF. Please check the content of your PDF or try a different one.")
-        else:
-            st.error("No text found or OCR failed to extract text. Please check the PDF.")
+    # Accept user question/query
+    query = st.text_input("Ask questions about the PDF here:")
     
+    # In the main function, where we call similarity_search:
+    if query and collection:
+        # Perform similarity search using Chroma's similarity_search method
+        results = collection.similarity_search(query=query, k=3)
+
+        # Wrap documents in the correct format
+        docs = [Document(page_content=doc) for doc in results]
+
+        # Initialize the LLM and QA chain
+        llm = ChatGroq(model="llama3-8b-8192")
+        chain = load_qa_chain(llm=llm, chain_type="stuff")
+
+        # Run the QA chain
+        response = chain.run(input_documents=docs, question=query)
+
+        # Convert the response to speech
+        mp3_stream = text_to_speech(response)
+
+        # Play the audio directly from the memory stream
+        st.audio(mp3_stream, format="audio/mp3")
+
+        # Display the response text below the audio player
+        st.write(response)
+
+    elif not query:
+        st.error("No text found in PDF to create chunks. Please check your PDF content.")
+
 if __name__ == "__main__":
     main()
