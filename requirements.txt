@@ -14,3 +14,4 @@ pillow
 torch 
 transformers
 pdf2image
+frontend
