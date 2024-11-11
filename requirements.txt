@@ -2,11 +2,9 @@ langchain
 langchain_community
 langchain_huggingface
 langchain_groq
-PyPDF2
+pypdf
 streamlit
 streamlit-extras
 chromadb==0.3.29
 protobuf==3.20.*
 gtts
-PyMuPDF==1.16.14
-pytesseract
