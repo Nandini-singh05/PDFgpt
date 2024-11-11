@@ -8,3 +8,9 @@ streamlit-extras
 chromadb==0.3.29
 protobuf==3.20.*
 gtts
+pymupdf
+pytesseract 
+pillow
+torch 
+transformers
+pdf2image
