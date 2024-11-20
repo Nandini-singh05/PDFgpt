@@ -26,7 +26,7 @@ with st.sidebar:
     - [Groq](https://groq.com/groqcloud/)
     ''')
     add_vertical_space(4)
-    st.write('Made with ❤️ by [Nandini Singh](http://linkedin.com/in/nandini-singh-bb7154159)')
+    st.write('Made with ❤️ by Nandini Singh & Ansh Varshney')
 
 def text_to_speech(text, filename):
     """Convert text to speech and save as an MP3 file."""
